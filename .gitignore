@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+
+# Local app / editor / OS files
+.run/
+.claude/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Secrets (never commit)
+.env
+*.env
