@@ -297,7 +297,7 @@ def refs_html(s, extra):
 PICK = "Smart Switch"  # name of the one recommended same-salt alternative
 
 AUTHOR = f'<div class="author"><span class="avatar" aria-hidden="true">Rx</span><div class="txt">Written by <b>Tablow Content Team</b> · Medically reviewed by <b>[Registered pharmacist – to be assigned]</b><br>Last updated <time datetime="{UPDATED}">{UPDATED_HUMAN}</time> · <a href="{SITE}/about">How we review content</a></div></div>'
-DISCLAIM = '<p class="disclaimer"><strong>Medical disclaimer:</strong> This page is for general information and does not replace advice from your doctor. A substitute is suggested on the basis of salt, strength and dosage form only. Do not start, stop or switch a medicine without speaking to your doctor or pharmacist.</p>'
+DISCLAIM = '<p class="disclaimer"><strong>Medical disclaimer:</strong> This page is for general information and does not replace advice from your doctor. A substitute is suggested on the basis of salt, strength and dosage form only. A Tablow doctor reviews every prescription order before it is dispensed.</p>'
 
 TRUST = f'''<div class="trust-wrap"><div class="trust-band">
  <div>{icon("badge")}<div><b>Same salt, strength and form</b><span>Each alternative has the same active ingredient in the same amount and dosage form.</span></div></div>
@@ -406,7 +406,7 @@ def why_cheaper(p):
  <div class="tile flat"><h3><span class="ic">{icon("scale","icon-sm")}</span>Same quality rules</h3><p>Every brand of this salt sold in India must meet Indian Pharmacopoeia standards and Schedule M manufacturing rules.</p></div>
 </div>'''
 
-def safe_switch(p):
+def safe_switch(p, sub=False):
     b, s = p["brand"], p["sub"]
     note = MORE[p["salt"]].get("switch_note")
     if note:
@@ -418,14 +418,14 @@ def safe_switch(p):
     else:
         extra = f'<div class="callout warn">{icon("alert")}<div><b>Tell the Tablow doctor on the call</b>If you have had an allergy to an inactive ingredient (such as a dye or lactose).</div></div>'
     return (f'<div class="callout ok">{icon("checkc")}<div><b>{"Yes, with a quick call from our doctor." if note else "For most people, yes."}</b> {e(s["short"])} has the same active ingredient in the same amount as {e(b["short"])}, so it is expected to work the same way. After you order, a Tablow doctor calls you to confirm the switch and issue your prescription.</div></div>'
-            + extra + '<h3>How to switch</h3>' + switch_steps(p))
+            + extra + '<h3>How to switch</h3>' + switch_steps(p)) if not sub else extra + switch_steps(p, True)
 
-def switch_steps(p):
+def switch_steps(p, sub=False):
     b, s = p["brand"], p["sub"]
     return f'''<ol class="steps">
- <li><b>Pick the strength</b><span>Choose the same strength you take now: {e(p["strength"])}.</span></li>
+ <li><b>Pick the strength</b><span>{"Choose the strength on your prescription" if sub else "Choose the same strength you take now"}: {e(p["strength"])}.</span></li>
  <li><b>Add to cart</b><span>Add {e(s["short"])} to your cart and place the order.</span></li>
- <li><b>{"Our doctor calls you" if is_rx(p) else "Pharmacy packs it"}</b><span>{"A Tablow doctor calls to confirm the switch and issues your prescription. Already have one? Upload it instead." if is_rx(p) else "A licensed partner pharmacy packs your order."}</span></li>
+ <li><b>{"Our doctor calls you" if is_rx(p) else "Pharmacy packs it"}</b><span>{("A Tablow doctor calls to confirm your medicine and issues your prescription. Already have one? Upload it instead." if sub else "A Tablow doctor calls to confirm the switch and issues your prescription. Already have one? Upload it instead.") if is_rx(p) else "A licensed partner pharmacy packs your order."}</span></li>
  <li><b>Delivered to you</b><span>A licensed partner pharmacy dispenses and delivers a sealed pack.</span></li>
 </ol>'''
 
@@ -615,7 +615,7 @@ def glance(p, which, up):
     return (f'<section class="glance" aria-labelledby="gl-h"><div class="gl-head"><span class="tag">At a glance</span><h2 id="gl-h">{e(b["short"] if which == "brand" else s["short"])} in 30 seconds</h2></div>'
             f'<p class="gl-lead">{e(lead)}</p><ul class="gl-keys">{"".join(f"<li>{icon("checkc","icon-sm")}<span>{e(k)}</span></li>" for k in keys)}</ul></section>')
 
-def generics_block(p, up):
+def generics_block(p, up, show_stats=True):
     # Explainer for 'are generics as good as branded medicines in India', with this pair's own numbers.
     b, s = p["brand"], p["sub"]; ec = econ(p); S = SALTS[p["salt"]]; sc = COMPANIES[s["company"]]
     amt, per, _ = save_line(p, ec)
@@ -625,7 +625,7 @@ def generics_block(p, up):
     diff = ["Brand name and maker", "Inactive ingredients such as colour or filler", "Look of the tablet and pack", "Price"]
     return (f'<div class="answer"><p>Yes, when the salt, strength, dosage form and release type are the same. {e(S["name"])} is off patent, so many licensed Indian companies make it. '
             f'{e(s["short"])} and {e(b["short"])} are both made under the Drugs and Cosmetics Act, 1940, by licensed manufacturers, and must pass the same Indian Pharmacopoeia tests for strength, purity and how fast the tablet dissolves.</p></div>'
-            f'<div class="nums">{st}</div>'
+            + (f'<div class="nums">{st}</div>' if show_stats else '') +
             f'<div class="g2"><div class="tile green"><h3><span class="ic">{icon("checkc","icon-sm")}</span>Always the same</h3><ul class="list okl">{"".join(f"<li>{e(x)}</li>" for x in same)}</ul></div>'
             f'<div class="tile"><h3><span class="ic">{icon("info","icon-sm")}</span>What can differ</h3><ul class="list">{"".join(f"<li>{e(x)}</li>" for x in diff)}</ul></div></div>'
             f'<h3>What Indian rules say</h3><ul class="list">'
@@ -764,18 +764,16 @@ def sub_page(p):
  </div>
 </section>'''
     rail = f'<aside class="pdp-rail" aria-label="Buy">{buy}{rail_help("I have a question about " + s["short"])}</aside>'
-    nav = secnav([("b", "Product", [("overview", "Overview"), ("compare", "vs " + e(b["short"])), ("savings", "Savings"), ("generics", "Generic vs brand"), ("manufacturer", "Manufacturer")]),
+    nav = secnav([("b", "Product", [("overview", "Overview"), ("generics", "Generic vs brand"), ("manufacturer", "Manufacturer")]),
                   ("a", "Usage", [("uses", "Uses"), ("how-to-take", "How to take"), ("dosage", "Dosage")]),
                   ("b", "Safety", [("side-effects", "Side effects"), ("safety", "Safety"), ("interactions", "Interactions"), ("warnings", "Warnings")]),
-                  ("c", "More", [("tips", "Tips &amp; storage"), ("lab-tests", "Lab tests"), ("switch", "Switching"), ("faq", "FAQs"), ("references", "References")])])
+                  ("c", "More", [("tips", "Tips &amp; storage"), ("lab-tests", "Lab tests"), ("ordering", "How ordering works"), ("faq", "FAQs"), ("references", "References")])])
     maker = (f'<div class="split"><div><p>{e(sc["about"])}</p><p>{e(CM["quality"])}</p>'
              f'<a class="btn btn-soft btn-sm" href="{co_u(s["company"], up)}">All {e(sc["short"])} medicines {icon("arrow","icon-sm")}</a></div>'
              + kv([("Company", e(sc["name"])), ("Headquarters", e(sc["hq"])), ("Founded", e(sc["founded"])), ("Listing", e(CM["ticker"])), ("Parent", e(sc["parent"]))]) + '</div>')
     body_secs = "".join([
         sec("overview", "Product overview", f'What is {e(s["name"])}?', f'<div class="answer"><p>{e(s["name"])} is a {"prescription" if is_rx(p) else "pain and fever"} medicine by {e(sc["name"])} containing {e(p["strength"])}. It is a same-salt substitute for {e(b["name"])} and costs {ec["pct"]}% less. {e(S["definition"])} {e(M["intro"])}</p></div>' + kv(fact_rows(p, "sub", up)), "", "pill"),
-        sec("compare", "Side-by-side", f'{e(s["short"])} vs {e(b["short"])}', compare_html(p, ec, up), "", "scale"),
-        sec("savings", "Savings", f'How much you save with {e(s["short"])}', savings_block(p, ec), "Set how much you use. The saving is shown per year.", "calc"),
-        sec("generics", "Generic vs brand", f'Is {e(s["short"])} as good as {e(b["short"])}?', generics_block(p, up), "Short answer: yes, when the salt, strength and form match.", "badge"),
+        sec("generics", "Generic vs brand", f'Is {e(s["short"])} as good as {e(b["short"])}?', generics_block(p, up, show_stats=False), "Short answer: yes, when the salt, strength and form match.", "badge"),
         sec("uses", "Indications", f'What is {e(s["short"])} used for?', uses_block(S, M, s["short"]), "", "stetho"),
         sec("how-to-take", "Directions", f'How to take {e(s["short"])}', howto_block(S, M, s["short"]), "", "list"),
         sec("dosage", "Dosage", f'{e(s["short"])} dosage', dosage_block(S, M, s["short"]), "", "clock"),
@@ -786,7 +784,7 @@ def sub_page(p):
         sec("tips", "Good to know", f'Tips, lifestyle and storage', tips_block(S, M), "", "heart"),
         sec("lab-tests", "Monitoring", f'Lab tests related to {e(s["short"])}', labs_block(M, s["short"]), "", "testtube"),
         sec("manufacturer", "Manufacturer", f'Who makes {e(s["short"])}?', maker, "", "factory"),
-        sec("switch", "Switching", f'Switching from {e(b["short"])} to {e(s["short"])}', safe_switch(p), "", "repeat"),
+        sec("ordering", "Ordering", f'How ordering {e(s["short"])} works', safe_switch(p, sub=True), "", "repeat"),
         sec("faq", "FAQs", f'Frequently asked questions about {e(s["short"])}', faq_groups([(f'About {e(s["short"])} and {e(b["short"])}', p["sub_faq"]), (f'Using {e(S["name"])} safely', M["salt_faq"])]), f'{len(faqs_all)} answers.', "help"),
         sec("references", "Sources", "References and review", refs_html(S, f'Prescribing information for {s["name"]}, {sc["name"]}.') + DISCLAIM, "", "book"),
     ])
